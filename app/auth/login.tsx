@@ -14,7 +14,7 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
-    const { login, loginWithGoogle } = useContext(UserContext);
+    const { login, loginWithGoogle, resetPassword } = useContext(UserContext);
     const theme = useColorScheme() ?? 'light';
     const colors = Colors[theme];
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -48,6 +48,23 @@ export default function LoginScreen() {
         }
     };
 
+    const handleForgotPassword = async () => {
+        if (!email) {
+            Alert.alert('Reset Password', 'Please enter your email first.');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            await resetPassword(email);
+            Alert.alert('Reset Password', 'Password reset email sent.');
+        } catch (error: any) {
+            Alert.alert('Reset Password Failed', error.message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <ParticlesBackground />
@@ -71,6 +88,10 @@ export default function LoginScreen() {
                     onChangeText={setPassword}
                     secureTextEntry
                 />
+
+                <Pressable style={styles.forgotButton} onPress={handleForgotPassword} disabled={isLoading}>
+                    <ThemedText style={styles.forgotText}>Forgot password?</ThemedText>
+                </Pressable>
 
                 <Pressable style={styles.button} onPress={handleLogin} disabled={isLoading}>
                     {isLoading ? (
@@ -158,5 +179,13 @@ const createStyles = (colors) => StyleSheet.create({
     },
     linkText: {
         color: colors.tint,
+    },
+    forgotButton: {
+        alignSelf: 'flex-end',
+        marginBottom: 8,
+    },
+    forgotText: {
+        color: colors.tint,
+        fontSize: 14,
     },
 });

@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updatePassword, GoogleAuthProvider, signInWithPopup, signInWithCredential } from 'firebase/auth';
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updatePassword, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithCredential } from 'firebase/auth';
 import { auth, googleClientId } from '../config/firebase';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -55,6 +55,10 @@ export const UserProvider = ({ children }) => {
     throw new Error("No user logged in");
   };
 
+  const resetPassword = async (email) => {
+    return sendPasswordResetEmail(auth, email);
+  };
+
   const loginWithGoogle = async () => {
     if (Platform.OS === 'web') {
       const provider = new GoogleAuthProvider();
@@ -91,7 +95,7 @@ export const UserProvider = ({ children }) => {
   };
 
   return (
-    <UserContext.Provider value={{ user, login, register, logout, changePassword, loginWithGoogle, loading }}>
+    <UserContext.Provider value={{ user, login, register, logout, changePassword, resetPassword, loginWithGoogle, loading }}>
       {children}
     </UserContext.Provider>
   );

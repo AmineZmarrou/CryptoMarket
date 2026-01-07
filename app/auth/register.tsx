@@ -16,7 +16,7 @@ export default function RegisterScreen() {
     const [isLoading, setIsLoading] = useState(false);
 
     const router = useRouter();
-    const { register } = useContext(UserContext);
+    const { register, loginWithGoogle } = useContext(UserContext);
     const theme = useColorScheme() ?? 'light';
     const colors = Colors[theme];
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -38,6 +38,18 @@ export default function RegisterScreen() {
             router.replace('/(tabs)');
         } catch (error: any) {
             Alert.alert('Registration Failed', error.message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleGoogleLogin = async () => {
+        setIsLoading(true);
+        try {
+            await loginWithGoogle();
+            router.replace('/(tabs)');
+        } catch (error: any) {
+            Alert.alert('Google Sign-In Failed', error.message);
         } finally {
             setIsLoading(false);
         }
@@ -82,6 +94,10 @@ export default function RegisterScreen() {
                     ) : (
                         <ThemedText style={styles.buttonText}>Sign Up</ThemedText>
                     )}
+                </Pressable>
+
+                <Pressable style={styles.googleButton} onPress={handleGoogleLogin} disabled={isLoading}>
+                    <ThemedText style={styles.googleButtonText}>Continue with Google</ThemedText>
                 </Pressable>
 
                 <Link href="/auth/login" asChild>
@@ -144,5 +160,19 @@ const createStyles = (colors) => StyleSheet.create({
     },
     linkText: {
         color: colors.tint,
+    },
+    googleButton: {
+        backgroundColor: colors.surface,
+        padding: 16,
+        borderRadius: 14,
+        alignItems: 'center',
+        marginTop: 12,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    googleButtonText: {
+        color: colors.text,
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });
