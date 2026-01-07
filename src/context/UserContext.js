@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updatePassword, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithCredential } from 'firebase/auth';
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updatePassword, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithCredential, EmailAuthProvider, reauthenticateWithCredential, verifyBeforeUpdateEmail } from 'firebase/auth';
 import { auth, googleClientId } from '../config/firebase';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -55,6 +55,21 @@ export const UserProvider = ({ children }) => {
     throw new Error("No user logged in");
   };
 
+  const reauthenticate = async (currentPassword) => {
+    if (!auth.currentUser || !auth.currentUser.email) {
+      throw new Error("No user logged in");
+    }
+    const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
+    return reauthenticateWithCredential(auth.currentUser, credential);
+  };
+
+  const changeEmail = async (newEmail) => {
+    if (auth.currentUser) {
+      return verifyBeforeUpdateEmail(auth.currentUser, newEmail);
+    }
+    throw new Error("No user logged in");
+  };
+
   const resetPassword = async (email) => {
     return sendPasswordResetEmail(auth, email);
   };
@@ -95,7 +110,7 @@ export const UserProvider = ({ children }) => {
   };
 
   return (
-    <UserContext.Provider value={{ user, login, register, logout, changePassword, resetPassword, loginWithGoogle, loading }}>
+    <UserContext.Provider value={{ user, login, register, logout, changePassword, changeEmail, reauthenticate, resetPassword, loginWithGoogle, loading }}>
       {children}
     </UserContext.Provider>
   );

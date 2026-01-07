@@ -2,7 +2,7 @@ import { useState, useContext, useMemo } from 'react';
 import { StyleSheet, TextInput, Pressable, Alert, View, ActivityIndicator } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { UserContext } from '@/src/context/UserContext';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
@@ -10,26 +10,72 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ParticlesBackground } from '@/components/particles-background';
 
 export default function SecurityScreen() {
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newEmail, setNewEmail] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const { changePassword } = useContext(UserContext);
+    const { changePassword, changeEmail, reauthenticate, user } = useContext(UserContext);
     const router = useRouter();
     const theme = useColorScheme() ?? 'light';
     const colors = Colors[theme];
     const styles = useMemo(() => createStyles(colors), [colors]);
 
-    const handleUpdate = async () => {
-        if (!newPassword || !confirmPassword) {
-            Alert.alert('Error', 'Please fill in all fields');
+    const handleUpdateEmail = async () => {
+        const trimmedEmail = newEmail.trim();
+        if (!trimmedEmail) {
+            Alert.alert('Error', 'Please enter your new email');
+            return;
+        }
+        if (trimmedEmail === user?.email) {
+            Alert.alert('Error', 'New email must be different');
             return;
         }
 
+        setIsLoading(true);
+        try {
+            await changeEmail(trimmedEmail);
+            Alert.alert(
+                'Verify New Email',
+                'We sent a verification link to your new email. Please confirm it to finish the change.'
+            );
+        } catch (error: any) {
+            if (error.code === 'auth/requires-recent-login' || error.message.includes('auth/requires-recent-login')) {
+                Alert.alert(
+                    'Security Check Required',
+                    'To change your email, you need to have logged in recently. Please log out and log back in to verify your identity.',
+                    [
+                        {
+                            text: 'Log Out Now',
+                            onPress: async () => {
+                                router.dismissAll();
+                                router.replace('/auth/login');
+                            }
+                        },
+                        { text: 'Cancel', style: 'cancel' }
+                    ]
+                );
+            } else {
+                Alert.alert('Update Failed', error.message);
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleUpdatePassword = async () => {
+        if (!currentPassword) {
+            Alert.alert('Error', 'Please enter your current password');
+            return;
+        }
+        if (!newPassword || !confirmPassword) {
+            Alert.alert('Error', 'Please fill in all password fields');
+            return;
+        }
         if (newPassword.length < 6) {
             Alert.alert('Error', 'Password must be at least 6 characters');
             return;
         }
-
         if (newPassword !== confirmPassword) {
             Alert.alert('Error', 'Passwords do not match');
             return;
@@ -37,6 +83,7 @@ export default function SecurityScreen() {
 
         setIsLoading(true);
         try {
+            await reauthenticate(currentPassword);
             await changePassword(newPassword);
             Alert.alert('Success', 'Password updated successfully', [
                 { text: 'OK', onPress: () => router.back() }
@@ -50,10 +97,6 @@ export default function SecurityScreen() {
                         {
                             text: 'Log Out Now',
                             onPress: async () => {
-                                // We can use the context logout here if we imported it, 
-                                // but simpler to just navigate back or let them handle it.
-                                // Ideal: trigger logout via context.
-                                // For now, let's just go back to profile or auth screen.
                                 router.dismissAll();
                                 router.replace('/auth/login');
                             }
@@ -82,6 +125,43 @@ export default function SecurityScreen() {
             </View>
 
             <View style={styles.form}>
+                <ThemedText style={styles.label}>New Email</ThemedText>
+                <TextInput
+                    style={styles.input}
+                    placeholder="Enter new email"
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    value={newEmail}
+                    onChangeText={setNewEmail}
+                />
+                <Pressable
+                    style={[styles.button, isLoading && styles.buttonDisabled]}
+                    onPress={handleUpdateEmail}
+                    disabled={isLoading}
+                >
+                    {isLoading ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <ThemedText style={styles.buttonText}>Update Email</ThemedText>
+                    )}
+                </Pressable>
+
+                <ThemedText style={styles.label}>Current Password</ThemedText>
+                <TextInput
+                    style={styles.input}
+                    placeholder="Enter current password"
+                    placeholderTextColor={colors.textMuted}
+                    secureTextEntry
+                    value={currentPassword}
+                    onChangeText={setCurrentPassword}
+                />
+                <Link href="/auth/login" asChild>
+                    <Pressable style={({ pressed }) => [styles.forgotLink, pressed && styles.pressed]}>
+                        <ThemedText style={styles.forgotText}>Forgot password?</ThemedText>
+                    </Pressable>
+                </Link>
+
                 <ThemedText style={styles.label}>New Password</ThemedText>
                 <TextInput
                     style={styles.input}
@@ -104,7 +184,7 @@ export default function SecurityScreen() {
 
                 <Pressable
                     style={[styles.button, isLoading && styles.buttonDisabled]}
-                    onPress={handleUpdate}
+                    onPress={handleUpdatePassword}
                     disabled={isLoading}
                 >
                     {isLoading ? (
@@ -115,7 +195,7 @@ export default function SecurityScreen() {
                 </Pressable>
 
                 <ThemedText style={styles.helperText}>
-                    Note: You may be required to re-login if your session has expired.
+                    Note: Your current password is required to change your password.
                 </ThemedText>
             </View>
         </ThemedView>
@@ -184,5 +264,14 @@ const createStyles = (colors) => StyleSheet.create({
         fontSize: 12,
         textAlign: 'center',
         marginTop: 16,
+    },
+    forgotLink: {
+        alignSelf: 'flex-end',
+        marginTop: -4,
+    },
+    forgotText: {
+        color: colors.tint,
+        fontSize: 12,
+        fontWeight: '600',
     },
 });
